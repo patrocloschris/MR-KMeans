@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import sys
+import logging
 import getopt
 import os.path
 import random
@@ -10,6 +11,8 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from __builtin__ import int
 
+logging.basicConfig(format='%(asctime)s %(levelname)s : %(message)s', datefmt='%d-%m-%Y %I:%M:%S')
+logger = logging.getLogger('mr-kmeans')
 
 def generateFinalResult(dataInfo, outputfile, clusters):
     result = dict()
@@ -51,11 +54,11 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "d:i:c:o:")
     except getopt.GetoptError:
-        print 'executor.py -d <hadoopHome> -i <inputfile> -c <runningTimes> -o <outputfile>'
+        logger.error('executor.py -d <hadoopHome> -i <inputfile> -c <runningTimes> -o <outputfile>')
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'executor.py -d <hadoopStreamfile> -i <inputfile> -c <runningTimes> -o <outputfile>'
+            logger.error('executor.py -d <hadoopStreamfile> -i <inputfile> -c <runningTimes> -o <outputfile>')
             sys.exit()
 
         elif opt in "-d":
@@ -67,17 +70,17 @@ def main(argv):
         elif opt in "-o":
             outputfile = arg
 
-    print "Checking input parameters"
+    logger.info("Checking input parameters")
     # check if that files exist in the os
     if not hadoopHome.endswith('/'):
         hadoopHome = hadoopHome + "/"
     hadoopJar = hadoopHome + "bin/hadoop"
     if os.path.isfile(hadoopJar) == False:
-        print "File " + hadoopJar + " does not exist"
+        logger.error("File %s does not exist", hadoopJar)
         sys.exit()
 
     # remove stop words from file
-    print "Import Stop words"
+    logger.info("Import Stop words")
     my_words=set(['said'])
     my_stop_words = text.ENGLISH_STOP_WORDS.union(my_words)
     newinputfile = inputfile + ".new"
@@ -86,7 +89,7 @@ def main(argv):
     id = []
     dataInfo = dict()
     all = []
-    print "Reading Data"
+    logger.info("Reading Data")
     with open(inputfile) as inputFile:
         data = csv.reader(inputFile, delimiter='\t')
         # skip header
@@ -108,14 +111,14 @@ def main(argv):
             id.append(row[1])
             dataInfo[row[1]] = row[4]
 
-    print "Vectorizing data"
+    logger.info("Vectorizing data")
     tfidf_vectorizer = TfidfVectorizer(max_features=1000,stop_words=set(my_stop_words))
     data = tfidf_vectorizer.fit_transform(all)
 
     allData = 1 - data.A
 
     #print allData
-    print "Dump to new file preprocessed data"
+    logger.info("Dump to new file preprocessed data")
     text_file = open(newinputfile, "w")
 
     dataCounter = 0
@@ -139,20 +142,19 @@ def main(argv):
         for column in range(allData.shape[1]):
             text_file.write("%s\t" % (float(allData[randomMovie][column])))
         text_file.write('|\n')
-        print "Setting init cluster with code [" + str(i) + "] from event with id=[" + id[randomMovie] + "]"
+        logger.info("Setting init cluster with code [%s] from event with id=[%s]",str(i),id[randomMovie])
         usedMovies.append(randomMovie)
     text_file.close()
 
     # run 'count' times
     for i in range(counter):
-        print "Kmeans: MapReduce execution "
+        logger.info("Kmeans: MapReduce execution")
         process = subprocess.Popen(
             hadoopJar + " jar ./hadoop-streaming-2.6.3.jar -mapper ./mapper.py -reducer ./reduce.py -input " + newinputfile + " -output clusteringResults"+str(i),
             shell=True, stdout=subprocess.PIPE)
         process.wait()
 
     generateFinalResult(dataInfo, outputfile,clusters)
-
 
 if __name__ == "__main__":
     main(sys.argv[1:]);
