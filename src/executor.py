@@ -1,16 +1,17 @@
 #!/usr/bin/env python
+
 import sys
 import logging
-import getopt
-import os.path
 import random
 import subprocess
-from sklearn.feature_extraction import text
 import csv
 import re
-from sklearn.feature_extraction.text import TfidfVectorizer
 from __builtin__ import int
+from sklearn.feature_extraction import text
+from sklearn.feature_extraction.text import TfidfVectorizer
+from ArgumentValidator import checkInputArguments
 
+# Logger initialization
 logging.basicConfig(format='%(asctime)s %(levelname)s : %(message)s', datefmt='%d-%m-%Y %I:%M:%S')
 logger = logging.getLogger('mr-kmeans')
 
@@ -44,40 +45,12 @@ def generateFinalResult(dataInfo, outputfile, clusters):
 
 
 def main(argv):
-    hadoopHome = ''
-    inputfile = ''
-    outputfile = ''
+    hadoopHome = inputfile= outputfile= hadoopJar = ''
     counter = 1
     clusters = 25
 
-    # read input parameters
-    try:
-        opts, args = getopt.getopt(argv, "d:i:c:o:")
-    except getopt.GetoptError:
-        logger.error('executor.py -d <hadoopHome> -i <inputfile> -c <runningTimes> -o <outputfile>')
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-h':
-            logger.error('executor.py -d <hadoopStreamfile> -i <inputfile> -c <runningTimes> -o <outputfile>')
-            sys.exit()
-
-        elif opt in "-d":
-            hadoopHome = arg
-        elif opt in "-i":
-            inputfile = arg
-        elif opt in "-c":
-            counter = int(arg)
-        elif opt in "-o":
-            outputfile = arg
-
-    logger.info("Checking input parameters")
-    # check if that files exist in the os
-    if not hadoopHome.endswith('/'):
-        hadoopHome = hadoopHome + "/"
-    hadoopJar = hadoopHome + "bin/hadoop"
-    if os.path.isfile(hadoopJar) == False:
-        logger.error("File %s does not exist", hadoopJar)
-        sys.exit()
+    #check input arguments
+    checkInputArguments(logger,argv,hadoopHome,inputfile,outputfile,counter,clusters)
 
     # remove stop words from file
     logger.info("Import Stop words")
@@ -155,6 +128,8 @@ def main(argv):
         process.wait()
 
     generateFinalResult(dataInfo, outputfile,clusters)
+
+
 
 if __name__ == "__main__":
     main(sys.argv[1:]);
